@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #0f3460;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        .score-display {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        .pulse {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="fixed top-0 left-0 right-0 bg-black bg-opacity-70 py-2 px-4 flex justify-between items-center z-10">
+        <button onclick="location.href='index.html'" class="text-white hover:text-orange-400 transition">
+            <i class="fas fa-home mr-1"></i> Main Menu
+        </button>
+        <div class="flex space-x-4">
+            <button id="soundToggle" class="text-white hover:text-orange-400 transition">
+                <i class="fas fa-volume-up"></i> Sound
+            </button>
+            <button id="pauseBtn" class="text-white hover:text-orange-400 transition">
+                <i class="fas fa-pause"></i> Pause
+            </button>
+        </div>
+    </div>
+
+    <div class="fixed top-20 left-1/2 transform -translate-x-1/2 z-10 text-center">
+        <div class="flex space-x-12">
+            <div class="score-display text-white">
+                <div class="text-2xl">Player 1</div>
+                <div id="score1" class="text-5xl font-bold">0</div>
+            </div>
+            <div id="modeIndicator" class="bg-white bg-opacity-20 rounded-full px-6 py-2 flex items-center">
+                <span id="modeText" class="text-white font-semibold">Classic</span>
+            </div>
+            <div class="score-display text-white">
+                <div class="text-2xl">Player 2</div>
+                <div id="score2" class="text-5xl font-bold">0</div>
+            </div>
+        </div>
+        <div id="timer" class="text-white text-xl mt-2 hidden">
+            Time: <span id="timeValue">02:00</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-20 hidden">
+        <div class="bg-white rounded-xl p-8 max-w-md w-full text-center">
+            <h2 id="gameOverTitle" class="text-3xl font-bold mb-4">Game Over!</h2>
+            <p id="gameOverMessage" class="text-xl mb-6">Player 1 wins with 21 points!</p>
+            <div class="flex justify-center space-x-4">
+                <button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">
+                    Play Again
+                </button>
+                <button onclick="location.href='index.html'" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg">
+                    Main Menu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Game configuration
+        const config = {
+            width: 800,
+            height: 500,
+            paddleWidth: 15,
+            paddleHeight: 100,
+            ballRadius: 10,
+            netWidth: 4,
+            netHeight: 30,
+            netGap: 10,
+            paddleSpeed: 8,
+            initialBallSpeed: 5,
+            maxBallSpeed: 12,
+            speedIncrease: 0.2,
+            winningScore: 21,
+            timeAttackDuration: 120, // 2 minutes in seconds
+            tournamentSets: 3,
+            tournamentSetScore: 15
+        };
+
+        // Game state
+        let game = {
+            canvas: null,
+            ctx: null,
+            leftPaddle: { x: 0, y: 0, score: 0 },
+            rightPaddle: { x: 0, y: 0, score: 0 },
+            ball: { x: 0, y: 0, dx: 0, dy: 0, speed: 0 },
+            keys: {},
+            gameMode: 'classic',
+            characterStyle: 'beach',
+            isPaused: false,
+            isGameOver: false,
+            timeLeft: 0,
+            timerInterval: null,
+            sets: [0, 0],
+            currentSet: 1,
+            soundEnabled: true,
+            sounds: {
+                hit: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-soccer-ball-hard-hit-2091.mp3'),
+                score: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3'),
+                gameOver: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3')
+            }
+        };
+
+        // Initialize game
+        function init() {
+            game.canvas = document.getElementById('gameCanvas');
+            game.ctx = game.canvas.getContext('2d');
+            
+            // Set canvas size
+            game.canvas.width = config.width;
+            game.canvas.height = config.height;
+            
+            // Load settings from localStorage
+            game.gameMode = localStorage.getItem('gameMode') || 'classic';
+            game.characterStyle = localStorage.getItem('characterStyle') || 'beach';
+            
+            // Update UI
+            document.getElementById('modeText').textContent = game.gameMode.charAt(0).toUpperCase() + game.gameMode.slice(1).replace('-', ' ');
+            
+            if (game.gameMode === 'time-attack') {
+                document.getElementById('timer').classList.remove('hidden');
+                game.timeLeft = config.timeAttackDuration;
+                updateTimerDisplay();
+            }
+            
+            // Set up event listeners
+            document.addEventListener('keydown', keyDownHandler);
+            document.addEventListener('keyup', keyUpHandler);
+            document.getElementById('soundToggle').addEventListener('click', toggleSound);
+            document.getElementById('pauseBtn').addEventListener('click', togglePause);
+            
+            // Initialize game objects
+            resetGame();
+            
+            // Start game loop
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (!game.isPaused && !game.isGameOver) {
+                update();
+            }
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Update game state
+        function update() {
+            // Move paddles
+            if (game.keys['ArrowUp'] && game.leftPaddle.y > 0) {
+                game.leftPaddle.y -= config.paddleSpeed;
+            }
+            if (game.keys['ArrowDown'] && game.leftPaddle.y < config.height - config.paddleHeight) {
+                game.leftPaddle.y += config.paddleSpeed;
+            }
+            if (game.keys['w'] && game.rightPaddle.y > 0) {
+                game.rightPaddle.y -= config.paddleSpeed;
+            }
+            if (game.keys['s'] && game.rightPaddle.y < config.height - config.paddleHeight) {
+                game.rightPaddle.y += config.paddleSpeed;
+            }
+            
+            // Move ball
+            game.ball.x += game.ball.dx;
+            game.ball.y += game.ball.dy;
+            
+            // Ball collision with top and bottom
+            if (game.ball.y - game.ball.radius < 0 || game.ball.y + game.ball.radius > config.height) {
+                game.ball.dy = -game.ball.dy;
+                playSound('hit');
+            }
+            
+            // Ball collision with paddles
+            if (
+                game.ball.x - game.ball.radius < game.leftPaddle.x + config.paddleWidth &&
+                game.ball.y > game.leftPaddle.y &&
+                game.ball.y < game.leftPaddle.y + config.paddleHeight
+            ) {
+                const hitPosition = (game.ball.y - (game.leftPaddle.y + config.paddleHeight / 2)) / (config.paddleHeight / 2);
+                const angle = hitPosition * (Math.PI / 4);
+                
+                game.ball.dx = Math.cos(angle) * game.ball.speed;
+                game.ball.dy = Math.sin(angle) * game.ball.speed;
+                
+                // Increase ball speed
+                if (game.ball.speed < config.maxBallSpeed) {
+                    game.ball.speed += config.speedIncrease;
+                }
+                
+                playSound('hit');
+            }
+            
+            if (
+                game.ball.x + game.ball.radius > game.rightPaddle.x &&
+                game.ball.y > game.rightPaddle.y &&
+                game.ball.y < game.rightPaddle.y + config.paddleHeight
+            ) {
+                const hitPosition = (game.ball.y - (game.rightPaddle.y + config.paddleHeight / 2)) / (config.paddleHeight / 2);
+                const angle = hitPosition * (Math.PI / 4);
+                
+                game.ball.dx = -Math.cos(angle) * game.ball.speed;
+                game.ball.dy = Math.sin(angle) * game.ball.speed;
+                
+                // Increase ball speed
+                if (game.ball.speed < config.maxBallSpeed) {
+                    game.ball.speed += config.speedIncrease;
+                }
+                
+                playSound('hit');
+            }
+            
+            // Ball out of bounds (scoring)
+            if (game.ball.x - game.ball.radius < 0) {
+                game.rightPaddle.score++;
+                updateScore();
+                resetBall(1);
+            }
+            
+            if (game.ball.x + game.ball.radius > config.width) {
+                game.leftPaddle.score++;
+                updateScore();
+                resetBall(-1);
+            }
+            
+            // Update timer for Time Attack mode
+            if (game.gameMode === 'time-attack' && game.timerInterval === null) {
+                game.timerInterval = setInterval(() => {
+                    game.timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (game.timeLeft <= 0) {
+                        clearInterval(game.timerInterval);
+                        endGame();
+                    }
+                }, 1000);
+            }
+        }
+
+        // Draw game objects
+        function draw() {
+            // Clear canvas
+            game.ctx.clearRect(0, 0, config.width, config.height);
+            
+            // Draw background
+            game.ctx.fillStyle = '#0f3460';
+            game.ctx.fillRect(0, 0, config.width, config.height);
+            
+            // Draw net
+            game.ctx.fillStyle = '#ffffff';
+            for (let i = 0; i < config.height; i += config.netHeight + config.netGap) {
+                game.ctx.fillRect(config.width / 2 - config.netWidth / 2, i, config.netWidth, config.netHeight);
+            }
+            
+            // Draw paddles
+            game.ctx.fillStyle = '#ffffff';
+            game.ctx.fillRect(game.leftPaddle.x, game.leftPaddle.y, config.paddleWidth, config.paddleHeight);
+            game.ctx.fillRect(game.rightPaddle.x, game.rightPaddle.y, config.paddleWidth, config.paddleHeight);
+            
+            // Draw ball
+            game.ctx.beginPath();
+            game.ctx.arc(game.ball.x, game.ball.y, game.ball.radius, 0, Math.PI * 2);
+            game.ctx.fillStyle = '#ff6b6b';
+            game.ctx.fill();
+            game.ctx.closePath();
+            
+            // Draw character style indicators
+            drawCharacterStyle();
+        }
+
+        // Helper functions
+        function resetGame() {
+            // Reset paddles
+            game.leftPaddle = {
+                x: 20,
+                y: config.height / 2 - config.paddleHeight / 2,
+                score: 0
+            };
+            
+            game.rightPaddle = {
+                x: config.width - 20 - config.paddleWidth,
+                y: config.height / 2 - config.paddleHeight / 2,
+                score: 0
+            };
+            
+            // Reset ball
+            resetBall(Math.random() > 0.5 ? 1 : -1);
+            
+            // Reset scores
+            document.getElementById('score1').textContent = '0';
+            document.getElementById('score2').textContent = '0';
+            
+            // Reset game state
+            game.isGameOver = false;
+            game.isPaused = false;
+            
+            // For tournament mode
+            if (game.gameMode === 'tournament') {
+                game.sets = [0, 0];
+                game.currentSet = 1;
+            }
+        }
+
+        function resetBall(direction) {
+            game.ball = {
+                x: config.width / 2,
+                y: config.height / 2,
+                dx: direction * config.initialBallSpeed,
+                dy: (Math.random() * 2 - 1) * config.initialBallSpeed,
+                speed: config.initialBallSpeed
+            };
+        }
+
+        function updateScore() {
+            document.getElementById('score1').textContent = game.leftPaddle.score;
+            document.getElementById('score2').textContent = game.rightPaddle.score;
+            playSound('score');
+            
+            // Check for win condition based on game mode
+            let gameWon = false;
+            let winner = null;
+            
+            switch (game.gameMode) {
+                case 'classic':
+                    if (game.leftPaddle.score >= config.winningScore && 
+                        game.leftPaddle.score >= game.rightPaddle.score + 2) {
+                        gameWon = true;
+                        winner = 'Player 1';
+                    } else if (game.rightPaddle.score >= config.winningScore && 
+                               game.rightPaddle.score >= game.leftPaddle.score + 2) {
+                        gameWon = true;
+                        winner = 'Player 2';
+                    }
+                    break;
+                    
+                case 'time-attack':
+                    // Winner is determined when time runs out
+                    break;
+                    
+                case 'survival':
+                    // No winner, just track time survived
+                    break;
+                    
+                case 'tournament':
+                    if (game.leftPaddle.score >= config.tournamentSetScore && 
+                        game.leftPaddle.score >= game.rightPaddle.score + 2) {
+                        game.sets[0]++;
+                        if (game.sets[0] >= Math.ceil(config.tournamentSets / 2)) {
+                            gameWon = true;
+                            winner = 'Player 1';
+                        } else {
+                            resetGame();
+                            game.currentSet++;
+                        }
+                    } else if (game.rightPaddle.score >= config.tournamentSetScore && 
+                               game.rightPaddle.score >= game.leftPaddle.score + 2) {
+                        game.sets[1]++;
+                        if (game.sets[1] >= Math.ceil(config.tournamentSets / 2)) {
+                            gameWon = true;
+                            winner = 'Player 2';
+                        } else {
+                            resetGame();
+                            game.currentSet++;
+                        }
+                    }
+                    break;
+            }
+            
+            if (gameWon) {
+                endGame(winner);
+            }
+        }
+
+        function endGame(winner = null) {
+            game.isGameOver = true;
+            
+            if (game.timerInterval) {
+                clearInterval(game.timerInterval);
+                game.timerInterval = null;
+            }
+            
+            // Show game over modal
+            const modal = document.getElementById('gameOverModal');
+            const title = document.getElementById('gameOverTitle');
+            const message = document.getElementById('gameOverMessage');
+            
+            if (winner) {
+                title.textContent = 'Winner!';
+                message.textContent = `${winner} wins the game!`;
+            } else if (game.gameMode === 'time-attack') {
+                title.textContent = 'Time Up!';
+                if (game.leftPaddle.score > game.rightPaddle.score) {
+                    message.textContent = `Player 1 wins with ${game.leftPaddle.score} points!`;
+                } else if (game.rightPaddle.score > game.leftPaddle.score) {
+                    message.textContent = `Player 2 wins with ${game.rightPaddle.score} points!`;
+                } else {
+                    message.textContent = `It's a tie with ${game.leftPaddle.score} points each!`;
+                }
+            } else if (game.gameMode === 'survival') {
+                title.textContent = 'Game Over!';
+                message.textContent = `You survived for ${Math.floor((config.timeAttackDuration - game.timeLeft) / 60)} minutes and ${(config.timeAttackDuration - game.timeLeft) % 60} seconds!`;
+            }
+            
+            modal.classList.remove('hidden');
+            playSound('gameOver');
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(game.timeLeft / 60);
+            const seconds = game.timeLeft % 60;
+            document.getElementById('timeValue').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function togglePause() {
+            game.isPaused = !game.isPaused;
+            const pauseBtn = document.getElementById('pauseBtn');
+            pauseBtn.innerHTML = game.isPaused ? '<i class="fas fa-play"></i> Resume' : '<i class="fas fa-pause"></i> Pause';
+            
+            if (game.isPaused && game.timerInterval) {
+                clearInterval(game.timerInterval);
+                game.timerInterval = null;
+            } else if (!game.isPaused && game.gameMode === 'time-attack' && !game.isGameOver) {
+                game.timerInterval = setInterval(() => {
+                    game.timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (game.timeLeft <= 0) {
+                        clearInterval(game.timerInterval);
+                        endGame();
+                    }
+                }, 1000);
+            }
+        }
+
+        function toggleSound() {
+            game.soundEnabled = !game.soundEnabled;
+            const soundBtn = document.getElementById('soundToggle');
+            soundBtn.innerHTML = game.soundEnabled ? '<i class="fas fa-volume-up"></i> Sound' : '<i class="fas fa-volume-mute"></i> Sound';
+        }
+
+        function playSound(type) {
+            if (game.soundEnabled && game.sounds[type]) {
+                game.sounds[type].currentTime = 0;
+                game.sounds[type].play();
+            }
+        }
+
+        function drawCharacterStyle() {
+            // Draw character style indicators based on selected style
+            // This is a placeholder - in a full implementation you would draw sprites
+            game.ctx.fillStyle = '#ffffff';
+            game.ctx.font = '12px Arial';
+            game.ctx.fillText(`Style: ${game.characterStyle}`, 10, 20);
+        }
+
+        // Event handlers
+        function keyDownHandler(e) {
+            game.keys[e.key] = true;
+        }
+
+        function keyUpHandler(e) {
+            game.keys[e.key] = false;
+        }
+
+        // Start the game when the page loads
+        window.onload = init;
+    </script>
+</body>
+</html>

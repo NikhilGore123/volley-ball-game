@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Game Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .mode-card {
+            transition: all 0.3s ease;
+        }
+        .mode-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-900 to-purple-900 min-h-screen">
+    <div class="container mx-auto px-4 py-16">
+        <div class="text-center mb-12">
+            <h1 class="text-5xl font-bold text-white mb-4">Select Game Mode</h1>
+            <p class="text-xl text-blue-200">Choose your challenge level</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <!-- Classic Mode -->
+            <div class="mode-card bg-white rounded-xl p-6 cursor-pointer" onclick="selectMode('classic')">
+                <div class="flex items-center mb-4">
+                    <div class="bg-blue-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-trophy text-blue-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold">Classic</h3>
+                </div>
+                <p class="text-gray-600 mb-4">Standard volleyball rules. First to 21 points with a 2-point lead wins.</p>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="fas fa-users mr-2"></i>
+                    <span>1-2 players</span>
+                </div>
+            </div>
+
+            <!-- Time Attack -->
+            <div class="mode-card bg-white rounded-xl p-6 cursor-pointer" onclick="selectMode('time-attack')">
+                <div class="flex items-center mb-4">
+                    <div class="bg-red-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-clock text-red-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold">Time Attack</h3>
+                </div>
+                <p class="text-gray-600 mb-4">Score as many points as you can in 2 minutes. Multipliers for consecutive hits!</p>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="fas fa-bolt mr-2"></i>
+                    <span>Fast-paced</span>
+                </div>
+            </div>
+
+            <!-- Survival -->
+            <div class="mode-card bg-white rounded-xl p-6 cursor-pointer" onclick="selectMode('survival')">
+                <div class="flex items-center mb-4">
+                    <div class="bg-green-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-heart text-green-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold">Survival</h3>
+                </div>
+                <p class="text-gray-600 mb-4">Keep the ball in play as long as possible. Speed increases every 30 seconds!</p>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    <span>Endless challenge</span>
+                </div>
+            </div>
+
+            <!-- Tournament -->
+            <div class="mode-card bg-white rounded-xl p-6 cursor-pointer" onclick="selectMode('tournament')">
+                <div class="flex items-center mb-4">
+                    <div class="bg-yellow-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-medal text-yellow-600 text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-semibold">Tournament</h3>
+                </div>
+                <p class="text-gray-600 mb-4">Best of 3 sets (15 points each). Net height changes between sets for added challenge.</p>
+                <div class="flex items-center text-sm text-gray-500">
+                    <i class="fas fa-flag mr-2"></i>
+                    <span>Pro challenge</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <button onclick="location.href='game.html'" 
+                    class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-300 transform hover:scale-105">
+                Start Game <i class="fas fa-play ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function selectMode(mode) {
+            localStorage.setItem('gameMode', mode);
+            document.querySelectorAll('.mode-card').forEach(card => {
+                card.classList.remove('ring-4', 'ring-orange-400');
+            });
+            event.currentTarget.classList.add('ring-4', 'ring-orange-400');
+        }
+    </script>
+</body>
+</html>
